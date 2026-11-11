@@ -1,0 +1,24 @@
+# Este repo es PÚBLICO: nunca van datos reales, credenciales ni copias de seguridad.
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+Thumbs.db
+
+# Datos que maneja la app (base de datos, respaldos, volúmenes, dumps)
+data/
+storage/
+backups/
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.rar
+*.7z
+*.zip
+*.xz
+*.xz.[0-9][0-9][0-9]
+tests/_data/
