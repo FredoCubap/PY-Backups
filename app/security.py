@@ -83,7 +83,8 @@ def verify_password(password: str, stored: str) -> bool:
     Devuelve False, sin lanzar excepciones, si el valor guardado está mal
     formado o si sus parámetros quedan fuera de rango.
     """
-    if not stored:
+    # Un valor que no sea texto (por ejemplo un BLOB de la base) no es un hash válido.
+    if not isinstance(stored, str) or not stored:
         return False
 
     parts = stored.split("$")

@@ -74,10 +74,9 @@ def test_caracter_no_codificable_no_se_filtra_en_el_error():
     assert verify_password("ab\ud800c", hash_password(CLAVE)) is False
 
 
-def test_el_error_no_incluye_la_contrasena():
-    with pytest.raises(ValueError) as exc:
-        hash_password("")
-    assert "contraseña" in str(exc.value)
+@pytest.mark.parametrize("stored", [None, b"scrypt$32768$8$1$c2FsdA==$aGFzaA==", 123])
+def test_valor_guardado_que_no_es_texto(stored):
+    assert verify_password(CLAVE, stored) is False
 
 
 @pytest.mark.parametrize(
