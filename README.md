@@ -10,7 +10,9 @@ Sistema de copias de seguridad para la oficina: servidor web en la PC del admin,
 python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements-dev.txt
 copy .env.example .env        # y ajusta los valores
-.venv\Scripts\python -m uvicorn app.main:app --reload
+.venvScriptslembic upgrade head   # crea la base en PYBACKUPS_DATA_DIR (fuera del repo)
+.venvScriptspython -m app.cli crear-admin --usuario tu-usuario   # pide la contraseña por teclado
+.venv\Scripts\python -m uvicorn app.main:create_app --factory --reload
 ```
 
 ## Versionado

@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Panel · PY-Backups{% endblock %}
+{% block content %}
+<h1>Panel</h1>
+<p>Sesión de <strong>{{ username }}</strong>.</p>
+<form method="post" action="/logout"><button type="submit">Salir</button></form>
+{% endblock %}

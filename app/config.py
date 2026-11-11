@@ -1,3 +1,4 @@
+import secrets
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -38,3 +39,19 @@ def prepare_data_dir(data_dir: Path) -> Path:
             )
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def load_or_create_secret(data_dir: Path) -> str:
+    """Clave para firmar las cookies de sesión. (e1 2.3)
+
+    Se genera la primera vez y se guarda en `data_dir`, nunca en el repo.
+    Si se borra, las sesiones abiertas se invalidan y se genera otra.
+    """
+    key_file = data_dir / "session.key"
+    if key_file.exists():
+        key = key_file.read_text(encoding="ascii").strip()
+        if len(key) >= 64:
+            return key
+    key = secrets.token_hex(32)
+    key_file.write_text(key, encoding="ascii")
+    return key

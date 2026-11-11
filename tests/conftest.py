@@ -6,10 +6,15 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi.testclient import TestClient
 
+from app.admin import create_admin
+from app.config import Settings
 from app.database import make_engine, make_session_factory
+from app.main import create_app
 
 ROOT = Path(__file__).resolve().parent.parent
+CLAVE_ADMIN = "clave-de-prueba-1"
 
 
 def migrate(db_file: Path) -> str:
@@ -39,3 +44,25 @@ def run_with_session(db_url: str, fn):
 
     return asyncio.run(go())
 
+
+@pytest.fixture
+def app_settings(tmp_path):
+    """Ajustes que apuntan a una carpeta de datos temporal ya migrada."""
+    migrate(tmp_path / "app.db")
+    return Settings(data_dir=tmp_path)
+
+
+@pytest.fixture
+def client(app_settings):
+    with TestClient(create_app(app_settings), follow_redirects=False) as c:
+        yield c
+
+
+@pytest.fixture
+def admin_client(app_settings):
+    """Cliente con un admin `helix` ya creado en la base temporal."""
+    run_with_session(
+        app_settings.database_url, lambda f: create_admin(f, "helix", CLAVE_ADMIN)
+    )
+    with TestClient(create_app(app_settings), follow_redirects=False) as c:
+        yield c
