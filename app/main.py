@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from app import __version__, auth
@@ -15,7 +15,6 @@ from app.config import Settings, load_or_create_secret, prepare_data_dir
 from app.config import settings as default_settings
 from app.database import make_engine, make_session_factory
 from app.lockout import LoginLimiter
-from app.web import templates
 
 SESSION_MAX_AGE = 8 * 60 * 60  # 8 horas
 
@@ -50,8 +49,9 @@ def create_app(settings: Settings = default_settings) -> FastAPI:
     def health() -> dict:
         return {"status": "ok", "version": __version__, "timestamp": datetime.now(UTC).isoformat()}
 
-    @app.get("/", response_class=HTMLResponse)
+    @app.get("/")
     def home(request: Request):
-        return templates.TemplateResponse(request, "index.html", {"title": "PY-Backups"})
+        destino = "/panel" if request.session.get("admin_id") else "/login"
+        return RedirectResponse(destino, status_code=303)
 
     return app
