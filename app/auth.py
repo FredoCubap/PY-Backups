@@ -9,6 +9,7 @@ Decisiones de seguridad:
 """
 
 import asyncio
+import math
 from collections.abc import AsyncGenerator
 from functools import lru_cache
 from typing import Annotated
@@ -27,6 +28,7 @@ router = APIRouter()
 
 GENERIC_ERROR = "Usuario o contraseña incorrectos."
 MAX_PASSWORD_LENGTH = 1024  # más largo no es una contraseña: se rechaza sin derivar
+LOCKED_ERROR = "Demasiados intentos. Espera unos minutos e inténtalo de nuevo."
 UNKNOWN_ACTOR = "desconocido"
 
 
@@ -76,6 +78,22 @@ async def login(
 ):
     username = username.strip().lower()
     ip = request.client.host if request.client else None
+
+    # Bloqueado: se rechaza sin consultar la base ni derivar nada, aunque la
+    # clave fuera correcta. No se audita cada intento bloqueado (evita inflar
+    # la tabla); el inicio del bloqueo sí queda registrado más abajo.
+    limiter = request.app.state.login_limiter
+    key = (username[:64], ip)
+    wait = limiter.blocked_for(key)
+    if wait > 0:
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {"error": LOCKED_ERROR},
+            status_code=429,
+            headers={"Retry-After": str(math.ceil(wait))},
+        )
+
     admin = (
         await session.scalar(select(AdminUser).where(AdminUser.username == username))
         if username
@@ -89,19 +107,17 @@ async def login(
         valid = await asyncio.to_thread(verify_password, password, stored) and admin is not None
 
     if valid:
+        limiter.reset(key)
         request.session.clear()  # sesión nueva en cada login
         request.session["admin_id"] = admin.id
         await audit(session, actor=admin.username, action="login", ip=ip)
         await session.commit()
         return _redirect("/panel")
 
-    await audit(
-        session,
-        actor=admin.username if admin else UNKNOWN_ACTOR,
-        action="login",
-        result="fail",
-        ip=ip,
-    )
+    actor = admin.username if admin else UNKNOWN_ACTOR
+    await audit(session, actor=actor, action="login", result="fail", ip=ip)
+    if limiter.register_failure(key):
+        await audit(session, actor=actor, action="login-locked", result="blocked", ip=ip)
     await session.commit()
     return templates.TemplateResponse(
         request, "login.html", {"error": GENERIC_ERROR}, status_code=401

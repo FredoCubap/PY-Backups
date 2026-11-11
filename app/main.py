@@ -14,6 +14,7 @@ from app import __version__, auth
 from app.config import Settings, load_or_create_secret, prepare_data_dir
 from app.config import settings as default_settings
 from app.database import make_engine, make_session_factory
+from app.lockout import LoginLimiter
 from app.web import templates
 
 SESSION_MAX_AGE = 8 * 60 * 60  # 8 horas
@@ -31,6 +32,7 @@ def create_app(settings: Settings = default_settings) -> FastAPI:
 
     app.state.engine = make_engine(settings.database_url)
     app.state.session_factory = make_session_factory(app.state.engine)
+    app.state.login_limiter = LoginLimiter()
 
     # HTTP en la LAN: la cookie no puede ser `secure`. Ceiling: sin TLS, quien
     # espíe la red local podría verla; se resuelve poniendo HTTPS delante.
