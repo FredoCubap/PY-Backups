@@ -12,7 +12,13 @@
 </form>
 {% if workers %}
 <ul>
-  {% for w in workers %}<li>{{ w.username }} <small>({{ w.created_at }})</small></li>{% endfor %}
+  {% for w in workers %}
+  <li>{{ w.username }} <small>({{ w.created_at }})</small>
+    <form method="post" action="/workers/{{ w.id }}/enroll-code">
+      <button type="submit">Generar código de alta</button>
+    </form>
+  </li>
+  {% endfor %}
 </ul>
 {% else %}
 <p>Todavía no hay trabajadores.</p>

@@ -1,13 +1,14 @@
-"""Trabajadores: listado y alta desde el panel del admin. (e2 2.1)
+"""Trabajadores: listado, alta (e2 2.1) y código de alta de su PC (e2 2.2).
 
 El usuario se guarda en minúsculas y la columna es NOCASE: dos nombres que
 solo difieren en mayúsculas chocan con la restricción única de la base, que
 es la que decide (sin consultar antes, para no tener carrera entre dos altas).
 """
 
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -16,7 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.admin import USERNAME_ERROR, USERNAME_RE
 from app.audit import audit, now_local
 from app.auth import AdminDep, SessionDep
-from app.models import Worker
+from app.enroll import expiry, new_code
+from app.models import EnrollCode, Worker
 from app.web import templates
 
 router = APIRouter()
@@ -67,3 +69,35 @@ async def create_worker(
     await audit(session, actor=actor, action="worker-created", target=username, ip=ip)
     await session.commit()
     return RedirectResponse("/workers", status_code=303)
+
+
+@router.post("/workers/{worker_id}/enroll-code", response_class=HTMLResponse)
+async def create_enroll_code(
+    request: Request, worker_id: int, session: SessionDep, admin: AdminDep
+):
+    """Genera un código de alta y lo muestra una sola vez. (e2 2.2)"""
+    worker = await session.get(Worker, worker_id)
+    if worker is None:
+        raise HTTPException(status_code=404)
+
+    code, code_hash = new_code()
+    now = datetime.now().astimezone()
+    expires_at = expiry(now)
+    session.add(
+        EnrollCode(
+            worker_id=worker.id,
+            code_hash=code_hash,
+            created_at=now.isoformat(timespec="seconds"),
+            expires_at=expires_at,
+        )
+    )
+    ip = request.client.host if request.client else None
+    await audit(session, actor=admin.username, action="enroll-code-created",
+                target=worker.username, ip=ip)
+    await session.commit()
+    return templates.TemplateResponse(
+        request,
+        "enroll_code.html",
+        {"worker": worker.username, "code": code, "expires_at": expires_at},
+        headers={"Cache-Control": "no-store"},
+    )

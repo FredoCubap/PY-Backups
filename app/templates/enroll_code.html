@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Código de alta · PY-Backups{% endblock %}
+{% block content %}
+<h1>Código de alta</h1>
+<p>Para <strong>{{ worker }}</strong>. Sirve una sola vez y caduca el {{ expires_at }}.</p>
+<p style="font: 1.5rem/1.4 ui-monospace, monospace; word-break: break-all;"><code>{{ code }}</code></p>
+<p class="error" role="alert">Anótalo ahora: no se vuelve a mostrar. Si se pierde, genera otro.</p>
+<p><a href="/workers">← Trabajadores</a></p>
+{% endblock %}

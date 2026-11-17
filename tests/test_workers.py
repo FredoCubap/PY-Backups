@@ -1,9 +1,13 @@
-"""Alta de trabajadores desde el panel, sobre bases temporales. (e2 2.1)"""
+"""Alta de trabajadores (e2 2.1) y código de alta (e2 2.2), sobre bases temporales."""
 
+import hashlib
+import re
 import sqlite3
+from datetime import datetime, timedelta
 
 import pytest
 
+from app.enroll import hash_code, new_code
 from tests.conftest import CLAVE_ADMIN
 
 
@@ -77,3 +81,71 @@ def test_usuario_invalido_no_crea_nada(logged, app_settings, username):
 
 def test_panel_enlaza_a_trabajadores(logged):
     assert 'href="/workers"' in logged.get("/panel").text
+
+
+# --- Código de alta (e2 2.2) ---
+
+CODE_RE = re.compile(r"<code>([A-Z2-7]{4}(?:-[A-Z2-7]{1,4})+)</code>")
+
+
+def _new_worker(logged, app_settings, username="trabajador1"):
+    logged.post("/workers", data={"username": username})
+    return _query(app_settings, f"select id from workers where username = '{username}'")[0][0]
+
+
+def _codes(app_settings):
+    return _query(app_settings, "select worker_id, code_hash, created_at, expires_at, used_at "
+                                "from enroll_codes order by id")
+
+
+def test_codigo_sin_sesion_no_se_genera(client, app_settings):
+    r = client.post("/workers/1/enroll-code")
+    assert r.status_code == 303 and r.headers["location"] == "/login"
+    assert _codes(app_settings) == []
+
+
+def test_codigo_se_muestra_una_vez_y_solo_se_guarda_el_hash(logged, app_settings):
+    wid = _new_worker(logged, app_settings)
+    r = logged.post(f"/workers/{wid}/enroll-code")
+    assert r.status_code == 200
+    assert r.headers["cache-control"] == "no-store"
+    code = CODE_RE.search(r.text).group(1)
+    assert len(code.replace("-", "")) == 26  # 128 bits en base32
+
+    [(worker_id, code_hash, created, expires, used)] = _codes(app_settings)
+    assert worker_id == wid and used is None
+    expected = hashlib.sha256(code.replace("-", "").encode()).hexdigest()
+    assert code_hash == hash_code(code) == expected
+    created_dt, expires_dt = datetime.fromisoformat(created), datetime.fromisoformat(expires)
+    assert expires_dt - created_dt == timedelta(hours=24)
+
+    # El código no queda en ningún sitio de la base ni se vuelve a mostrar.
+    dump = str(_query(app_settings, "select * from enroll_codes")) + str(
+        _query(app_settings, "select * from audit_log"))
+    assert code not in dump and code.replace("-", "") not in dump
+    assert code not in logged.get("/workers").text
+    assert _query(app_settings, "select actor, action, target, result from audit_log "
+                                "where action = 'enroll-code-created'") == [
+        ("helix", "enroll-code-created", "trabajador1", "ok")
+    ]
+
+
+def test_cada_codigo_es_distinto(logged, app_settings):
+    wid = _new_worker(logged, app_settings)
+    codes = {CODE_RE.search(logged.post(f"/workers/{wid}/enroll-code").text).group(1)
+             for _ in range(5)}
+    assert len(codes) == 5
+
+
+def test_codigo_para_trabajador_inexistente_da_404(logged, app_settings):
+    assert logged.post("/workers/999/enroll-code").status_code == 404
+    assert logged.post("/workers/abc/enroll-code").status_code == 422
+    assert _codes(app_settings) == []
+
+
+def test_hash_code_normaliza_lo_que_se_teclea():
+    code, h = new_code()
+    assert hash_code(code.lower()) == h
+    assert hash_code(" " + code.replace("-", " ") + "\n") == h
+    assert hash_code(code.replace("-", "")) == h
+    assert hash_code(code[:-1]) != h
