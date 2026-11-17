@@ -97,3 +97,32 @@ def mac_lookup(ip: str, run: Callable[[], str] = _run_arp) -> str | None:
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         return None
     return parse_arp(output, ip)
+
+
+def _ping(ip: str) -> None:
+    """Un ping para que Windows refresque la entrada ARP de `ip`. (e2 2.3)"""
+    subprocess.run(
+        ["ping", "-n", "1", "-w", "500", ip], capture_output=True, timeout=3, check=False
+    )
+
+
+def resolve_mac(ip: str) -> str | None:
+    """Refresca la ARP con un ping y devuelve la MAC de `ip`, o None. (e2 2.3)
+
+    La IP se valida como IPv4 antes de pasarla al comando: así nunca llega
+    a `ping` algo que parezca una opción. Si el ping falla, se lee la ARP
+    tal como esté.
+    """
+    if not isinstance(ip, str):
+        return None
+    try:
+        target = ipaddress.ip_address(ip)
+    except ValueError:
+        return None
+    if not isinstance(target, ipaddress.IPv4Address):
+        return None
+    try:
+        _ping(str(target))
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return mac_lookup(str(target))

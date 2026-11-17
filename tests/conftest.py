@@ -66,3 +66,11 @@ def admin_client(app_settings):
     )
     with TestClient(create_app(app_settings), follow_redirects=False) as c:
         yield c
+
+
+@pytest.fixture
+def logged(admin_client):
+    """`admin_client` con la sesión de `helix` ya abierta."""
+    r = admin_client.post("/login", data={"username": "helix", "password": CLAVE_ADMIN})
+    assert r.status_code == 303
+    return admin_client

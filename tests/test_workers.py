@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 import pytest
 
 from app.enroll import hash_code, new_code
-from tests.conftest import CLAVE_ADMIN
 
 
 def _query(app_settings, sql):
@@ -28,13 +27,6 @@ def _audits(app_settings):
         "select actor, action, target, result, ip from audit_log "
         "where action = 'worker-created' order by id",
     )
-
-
-@pytest.fixture
-def logged(admin_client):
-    r = admin_client.post("/login", data={"username": "helix", "password": CLAVE_ADMIN})
-    assert r.status_code == 303
-    return admin_client
 
 
 def test_sin_sesion_no_se_ve_ni_se_crea(client, app_settings):
