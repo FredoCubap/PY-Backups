@@ -10,9 +10,9 @@ from tests.conftest import run_with_session
 def test_usuario_unico_sin_mayusculas(db_url):
     async def go(sf):
         async with sf() as s:
-            s.add(Worker(username="Ana", created_at="x"))
+            s.add(Worker(username="Trabajador1", created_at="x"))
             await s.commit()
-            s.add(Worker(username="ANA", created_at="x"))
+            s.add(Worker(username="TRABAJADOR1", created_at="x"))
             with pytest.raises(IntegrityError):
                 await s.commit()
 
@@ -22,7 +22,7 @@ def test_usuario_unico_sin_mayusculas(db_url):
 def test_mac_unica(db_url):
     async def go(sf):
         async with sf() as s:
-            w = Worker(username="ana", created_at="x")
+            w = Worker(username="trabajador1", created_at="x")
             s.add(w)
             await s.flush()
             d1, d2 = (Device(worker_id=w.id, token_hash=h, created_at="x", expires_at="x")

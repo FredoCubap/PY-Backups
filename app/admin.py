@@ -10,7 +10,9 @@ from app.models import AdminUser
 from app.security import hash_password
 
 MIN_PASSWORD_LENGTH = 10
-_USERNAME_RE = re.compile(r"[a-z0-9._-]{3,32}")
+# Regla de nombre de usuario compartida por admins y trabajadores (e2 2.1).
+USERNAME_RE = re.compile(r"[a-z0-9._-]{3,32}")
+USERNAME_ERROR = "El usuario debe tener de 3 a 32 caracteres: letras, números, . _ -"
 
 
 class AdminError(ValueError):
@@ -25,8 +27,8 @@ async def create_admin(
     El usuario se guarda en minúsculas. La contraseña solo se guarda como hash.
     """
     username = username.strip().lower()
-    if not _USERNAME_RE.fullmatch(username):
-        raise AdminError("El usuario debe tener de 3 a 32 caracteres: letras, números, . _ -")
+    if not USERNAME_RE.fullmatch(username):
+        raise AdminError(USERNAME_ERROR)
     if len(password) < MIN_PASSWORD_LENGTH:
         raise AdminError(f"La contraseña debe tener al menos {MIN_PASSWORD_LENGTH} caracteres.")
     try:

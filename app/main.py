@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
-from app import __version__, auth
+from app import __version__, auth, workers
 from app.config import Settings, load_or_create_secret, prepare_data_dir
 from app.config import settings as default_settings
 from app.database import make_engine, make_session_factory
@@ -44,6 +44,7 @@ def create_app(settings: Settings = default_settings) -> FastAPI:
         https_only=False,
     )
     app.include_router(auth.router)
+    app.include_router(workers.router)
 
     @app.get("/health")
     def health() -> dict:
